@@ -11,8 +11,9 @@
  * evaluation, so reordering, adding or removing members is reflected
  * the next time the macro is evaluated.
  *
- * The index only works in group chats. In solo chats, {{group::N}} always
- * resolves to an empty string, while {{group}} keeps the built-in behavior.
+ * The index only works in group chats. In solo chats, {{group::N}} is left
+ * as-is (the macro text itself is returned), while {{group}} keeps the
+ * built-in behavior.
  */
 
 const MODULE_NAME = 'group-index';
@@ -28,6 +29,13 @@ let legacyRegistered = false;
 
 function getContext() {
     return SillyTavern.getContext();
+}
+
+/**
+ * @returns {boolean} Whether a group chat is currently open
+ */
+function isGroupChat() {
+    return !!getContext().groupId;
 }
 
 /**
@@ -107,12 +115,15 @@ function registerNewEngineMacro() {
                 description: '1-based position in the group member list (muted members included).',
             },
         ],
-        description: 'Comma-separated list of group member names (including muted) or the character name in solo chats. With an index, returns the name of the member at that position in the group member list (1-based). Returns an empty string for 0 or out-of-range indices, and in solo chats.',
+        description: 'Comma-separated list of group member names (including muted) or the character name in solo chats. With an index, returns the name of the member at that position in the group member list (1-based). Returns an empty string for 0 or out-of-range indices. In solo chats, the macro is left as-is.',
         returns: 'List of group member names, or a single member name when an index is given.',
         exampleUsage: ['{{group}}', '{{group::1}}', '{{group::2}}'],
         handler: (context) => {
             if (!context.unnamedArgs?.length) {
                 return originalHandler(context);
+            }
+            if (!isGroupChat()) {
+                return context.rawOriginal ?? `{{${MACRO_NAME}::${context.unnamedArgs[0]}}}`;
             }
             return getGroupMemberByIndex(context.unnamedArgs[0]);
         },
@@ -135,7 +146,8 @@ function registerLegacyMacros() {
     }
 
     for (let i = 0; i <= LEGACY_MAX_INDEX; i++) {
-        context.registerMacro(`${MACRO_NAME}::${i}`, () => getGroupMemberByIndex(i), `Name of group member #${i} (1-based).`);
+        const key = `${MACRO_NAME}::${i}`;
+        context.registerMacro(key, () => isGroupChat() ? getGroupMemberByIndex(i) : `{{${key}}}`, `Name of group member #${i} (1-based).`);
     }
 
     legacyRegistered = true;
