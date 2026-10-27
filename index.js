@@ -10,6 +10,9 @@
  * indices resolve to an empty string. Members are looked up on every
  * evaluation, so reordering, adding or removing members is reflected
  * the next time the macro is evaluated.
+ *
+ * The index only works in group chats. In solo chats, {{group::N}} always
+ * resolves to an empty string, while {{group}} keeps the built-in behavior.
  */
 
 const MODULE_NAME = 'group-index';
@@ -29,15 +32,14 @@ function getContext() {
 
 /**
  * Returns member names of the current group in member-list order,
- * including muted members. In a solo chat, returns the character name.
+ * including muted members. Returns an empty list outside of group chats.
  * @returns {string[]}
  */
 function getOrderedMemberNames() {
     const context = getContext();
 
     if (!context.groupId) {
-        const name = context.characters?.[context.characterId]?.name;
-        return typeof name === 'string' && name ? [name] : [];
+        return [];
     }
 
     const group = context.groups?.find(x => x && x.id === context.groupId);
@@ -105,7 +107,7 @@ function registerNewEngineMacro() {
                 description: '1-based position in the group member list (muted members included).',
             },
         ],
-        description: 'Comma-separated list of group member names (including muted) or the character name in solo chats. With an index, returns the name of the member at that position in the group member list (1-based). Returns an empty string for 0 or out-of-range indices.',
+        description: 'Comma-separated list of group member names (including muted) or the character name in solo chats. With an index, returns the name of the member at that position in the group member list (1-based). Returns an empty string for 0 or out-of-range indices, and in solo chats.',
         returns: 'List of group member names, or a single member name when an index is given.',
         exampleUsage: ['{{group}}', '{{group::1}}', '{{group::2}}'],
         handler: (context) => {
